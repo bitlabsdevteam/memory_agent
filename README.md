@@ -237,4 +237,187 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 
 ---
 
-**Built with ❤️ using LangChain, Google Gemini, and Flask**# memory_agent
+**Built with ❤️ using LangChain, Google Gemini, and Flask**# 🏙️ City Information Assistant
+
+An intelligent AI agent that helps users gather factual information about cities worldwide. This assistant demonstrates advanced agentic capabilities including tool orchestration, function calling, contextual dialogue handling, streaming API interface, and transparent reasoning.
+
+## ✨ Features
+
+### Core Capabilities
+- **🌤️ Weather Information**: Get current weather conditions for any city
+- **🕐 Local Time**: Check the current time in different cities worldwide
+- **📍 City Facts**: Learn about city demographics, location, and interesting facts
+- **🗺️ Visit Planning**: Comprehensive city visit planning using multiple tools
+
+### Technical Features
+- **Tool Orchestration**: Seamless integration of multiple specialized tools
+- **Function Calling**: Structured output with reasoning transparency
+- **Multi-turn Dialogue**: Context-aware conversations with memory
+- **Streaming API**: Real-time response streaming
+- **Transparent Reasoning**: See the agent's thinking process
+
+## 🛠️ Architecture
+
+### Backend (Python/Flask)
+- **LangChain React Agent**: Advanced reasoning and tool orchestration
+- **Google Gemini Integration**: Powered by Gemini-1.5-flash model
+- **Memory Management**: Persistent conversation history
+- **RESTful API**: Clean endpoints for frontend integration
+
+### Frontend (React/Next.js)
+- **Modern UI**: Beautiful, responsive interface
+- **Real-time Chat**: Streaming responses with typing indicators
+- **Session Management**: Multiple conversation sessions
+- **Memory Visualization**: View conversation history and memory status
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Python 3.8+
+- Node.js 18+
+- Google API Key (for Gemini)
+
+### Backend Setup
+1. **Clone and navigate to the project**:
+   ```bash
+   git clone https://github.com/bitlabsdevteam/memory_agent.git
+   cd memory_agent
+   ```
+
+2. **Set up environment**:
+   ```bash
+   cp .env.example .env
+   # Edit .env and add your GOOGLE_API_KEY
+   ```
+
+3. **Install dependencies and start**:
+   ```bash
+   chmod +x start.sh
+   ./start.sh
+   ```
+
+   The backend will be available at `http://localhost:5001`
+
+### Frontend Setup
+1. **Navigate to frontend directory**:
+   ```bash
+   cd frontend
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+
+3. **Start development server**:
+   ```bash
+   npm run dev
+   ```
+
+   The frontend will be available at `http://localhost:3000`
+
+## 🔧 Tools & APIs
+
+The assistant implements the following specialized tools:
+
+| Tool | Purpose | Implementation |
+|------|---------|----------------|
+| **WeatherTool** | Get current weather for a city | Mock data (production: OpenWeatherMap API) |
+| **TimeTool** | Get current time in a city | Timezone calculations with UTC offsets |
+| **CityFactsTool** | Get basic facts about a city | Mock data (production: GeoDB Cities API) |
+| **PlanMyCityVisitTool** | Composite tool for visit planning | Orchestrates multiple tools with reasoning |
+
+## 💬 Example Interactions
+
+### Simple Queries
+```
+User: "What's the weather like in Paris?"
+Assistant: Uses WeatherTool → "Current weather in Paris: 23°C, clear skies, humidity 65%"
+```
+
+### Complex Planning
+```
+User: "Plan my visit to Tokyo"
+Assistant: Uses PlanMyCityVisitTool → Orchestrates multiple tools:
+1. Gets city facts about Tokyo
+2. Fetches current weather
+3. Checks local time
+4. Provides comprehensive visit summary
+```
+
+### Follow-up Questions
+```
+User: "What about the weather there?"
+Assistant: Uses conversation context → Provides weather for previously mentioned city
+```
+
+## 📁 Project Structure
+
+```
+memory_agent/
+├── app.py                 # Main Flask application
+├── config.py             # Configuration management
+├── requirements.txt      # Python dependencies
+├── start.sh             # Startup script
+├── .env.example         # Environment template
+├── frontend/            # React/Next.js frontend
+│   ├── src/app/
+│   │   ├── components/  # React components
+│   │   ├── page.tsx     # Main page
+│   │   └── layout.tsx   # App layout
+│   └── package.json     # Node dependencies
+└── README.md           # This file
+```
+
+## 🔑 Configuration
+
+Key configuration options in `config.py`:
+
+- **GOOGLE_MODEL**: AI model (default: gemini-1.5-flash)
+- **AGENT_TEMPERATURE**: Response creativity (0.0-1.0)
+- **MEMORY_MAX_MESSAGES**: Conversation memory limit
+- **STREAMING_ENABLED**: Real-time response streaming
+- **FLASK_PORT**: Backend server port
+
+## 🌐 API Endpoints
+
+- `GET /health` - Health check
+- `POST /chat` - Main chat endpoint (streaming)
+- `GET /memory/status/<session_id>` - Memory status
+- `DELETE /memory/clear/<session_id>` - Clear memory
+
+## 🧪 Testing
+
+Test the assistant with various queries:
+
+1. **Weather queries**: "What's the weather in London?"
+2. **Time queries**: "What time is it in Sydney?"
+3. **City facts**: "Tell me about New York"
+4. **Planning**: "Plan my visit to Berlin"
+5. **Follow-ups**: "What about the weather there?"
+
+## 🚀 Production Deployment
+
+For production use:
+
+1. **Replace mock data** with real APIs:
+   - OpenWeatherMap for weather
+   - World Time API for time zones
+   - GeoDB Cities API for city facts
+
+2. **Environment setup**:
+   - Use production WSGI server (gunicorn)
+   - Set up proper environment variables
+   - Configure CORS for your domain
+
+3. **Frontend deployment**:
+   - Build optimized bundle: `npm run build`
+   - Deploy to Vercel, Netlify, or similar
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📄 License
+
+This project is open source and available under the MIT License.
