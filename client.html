@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Agentic Chat</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+        }
+        .chat-container {
+            height: 400px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            overflow-y: auto;
+            background-color: #fafafa;
+            margin-bottom: 20px;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .user-message {
+            background-color: #007bff;
+            color: white;
+            margin-left: 20%;
+        }
+        .ai-message {
+            background-color: #e9ecef;
+            color: #333;
+            margin-right: 20%;
+        }
+        .action-message {
+            background-color: #fff3cd;
+            color: #856404;
+            font-style: italic;
+            margin-right: 20%;
+        }
+        .observation-message {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            font-family: monospace;
+            margin-right: 20%;
+        }
+        .input-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .session-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+        button {
+            padding: 12px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .memory-info {
+            background-color: #e7f3ff;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        .status.connected {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status.disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Memory Agentic Chat</h1>
+            <p>LangChain React Agent with Google Gemini & Optimized Memory Management</p>
+        </div>
+        
+        <div id="status" class="status disconnected">Disconnected</div>
+        
+        <div class="session-container">
+            <label for="sessionId">Session ID:</label>
+            <input type="text" id="sessionId" value="default" placeholder="Enter session ID">
+            <button onclick="updateSession()">Update Session</button>
+        </div>
+        
+        <div class="controls">
+            <button onclick="getMemoryStatus()">Check Memory</button>
+            <button onclick="clearMemory()">Clear Memory</button>
+            <button onclick="checkHealth()">Health Check</button>
+        </div>
+        
+        <div id="memoryInfo" class="memory-info">
+            Memory status will appear here...
+        </div>
+        
+        <div id="chatContainer" class="chat-container">
+            <div class="ai-message">
+                👋 Hello! I'm your memory-enabled AI assistant. I can remember our entire conversation and use various tools to help you. Try asking me something!
+            </div>
+        </div>
+        
+        <div class="input-container">
+            <input type="text" id="messageInput" placeholder="Type your message here..." onkeypress="handleKeyPress(event)">
+            <button id="sendButton" onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        let currentSessionId = 'default';
+        let isConnected = false;
+        
+        function updateStatus(connected) {
+            const statusEl = document.getElementById('status');
+            isConnected = connected;
+            if (connected) {
+                statusEl.textContent = 'Connected';
+                statusEl.className = 'status connected';
+            } else {
+                statusEl.textContent = 'Disconnected';
+                statusEl.className = 'status disconnected';
+            }
+        }
+        
+        function updateSession() {
+            const sessionInput = document.getElementById('sessionId');
+            currentSessionId = sessionInput.value || 'default';
+            addMessage('system', `Switched to session: ${currentSessionId}`);
+            getMemoryStatus();
+        }
+        
+        function addMessage(type, content) {
+            const chatContainer = document.getElementById('chatContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}-message`;
+            messageDiv.textContent = content;
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+        
+        function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const sendButton = document.getElementById('sendButton');
+            const message = messageInput.value.trim();
+            
+            if (!message) return;
+            
+            // Add user message to chat
+            addMessage('user', message);
+            messageInput.value = '';
+            sendButton.disabled = true;
+            
+            // Create AI message container for streaming
+            const chatContainer = document.getElementById('chatContainer');
+            const aiMessageDiv = document.createElement('div');
+            aiMessageDiv.className = 'message ai-message';
+            chatContainer.appendChild(aiMessageDiv);
+            
+            // Start streaming
+            const eventSource = new EventSource('http://localhost:5000/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: message,
+                    session_id: currentSessionId
+                })
+            });
+            
+            // Use fetch for POST request with streaming
+            fetch('http://localhost:5001/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: message,
+                    session_id: currentSessionId
+                })
+            })
+            .then(response => {
+                updateStatus(true);
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                
+                function readStream() {
+                    reader.read().then(({ done, value }) => {
+                        if (done) {
+                            sendButton.disabled = false;
+                            return;
+                        }
+                        
+                        const chunk = decoder.decode(value);
+                        const lines = chunk.split('\n');
+                        
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                try {
+                                    const data = JSON.parse(line.slice(6));
+                                    
+                                    if (data.type === 'content') {
+                                        aiMessageDiv.textContent += data.token;
+                                    } else if (data.type === 'action') {
+                                        const actionDiv = document.createElement('div');
+                                        actionDiv.className = 'message action-message';
+                                        actionDiv.textContent = data.token;
+                                        chatContainer.appendChild(actionDiv);
+                                    } else if (data.type === 'observation') {
+                                        const obsDiv = document.createElement('div');
+                                        obsDiv.className = 'message observation-message';
+                                        obsDiv.textContent = data.token;
+                                        chatContainer.appendChild(obsDiv);
+                                    } else if (data.type === 'error') {
+                                        aiMessageDiv.textContent = 'Error: ' + data.error;
+                                        aiMessageDiv.style.backgroundColor = '#f8d7da';
+                                        aiMessageDiv.style.color = '#721c24';
+                                    } else if (data.type === 'end') {
+                                        sendButton.disabled = false;
+                                        getMemoryStatus(); // Update memory info after conversation
+                                        return;
+                                    }
+                                    
+                                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                                } catch (e) {
+                                    console.error('Error parsing JSON:', e);
+                                }
+                            }
+                        }
+                        
+                        readStream();
+                    });
+                }
+                
+                readStream();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                updateStatus(false);
+                aiMessageDiv.textContent = 'Connection error. Please check if the server is running.';
+                aiMessageDiv.style.backgroundColor = '#f8d7da';
+                aiMessageDiv.style.color = '#721c24';
+                sendButton.disabled = false;
+            });
+        }
+        
+        function getMemoryStatus() {
+            fetch(`http://localhost:5001/memory/status/${currentSessionId}`)
+                .then(response => response.json())
+                .then(data => {
+                    const memoryInfo = document.getElementById('memoryInfo');
+                    memoryInfo.innerHTML = `
+                        <strong>Memory Status for Session "${data.session_id}":</strong><br>
+                        Messages in memory: ${data.message_count}<br>
+                        Recent messages: ${data.messages.length > 0 ? data.messages.map(m => `${m.type}: ${m.content}`).join('<br>') : 'None'}
+                    `;
+                })
+                .catch(error => {
+                    console.error('Error getting memory status:', error);
+                    document.getElementById('memoryInfo').textContent = 'Error getting memory status';
+                });
+        }
+        
+        function clearMemory() {
+            if (confirm(`Are you sure you want to clear memory for session "${currentSessionId}"?`)) {
+                fetch(`http://localhost:5001/memory/clear/${currentSessionId}`, {
+                    method: 'DELETE'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    addMessage('system', data.message);
+                    getMemoryStatus();
+                })
+                .catch(error => {
+                    console.error('Error clearing memory:', error);
+                    addMessage('system', 'Error clearing memory');
+                });
+            }
+        }
+        
+        function checkHealth() {
+            fetch('http://localhost:5001/health')
+                .then(response => response.json())
+                .then(data => {
+                    updateStatus(true);
+                    addMessage('system', `Health check: ${data.message}`);
+                })
+                .catch(error => {
+                    updateStatus(false);
+                    addMessage('system', 'Health check failed - server may be down');
+                });
+        }
+        
+        // Initial health check
+        setTimeout(checkHealth, 1000);
+        
+        // Get initial memory status
+        setTimeout(getMemoryStatus, 1500);
+    </script>
+</body>
+</html>
