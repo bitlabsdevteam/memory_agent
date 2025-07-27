@@ -5,10 +5,11 @@ from flask_cors import CORS
 import google.generativeai as genai
 import time
 import threading
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import requests
 from datetime import datetime, timezone, timedelta
 from config import get_config
+from llm_factory import LLMFactory, BaseLLMProvider
 
 # Get configuration
 config_class = get_config()
@@ -32,17 +33,32 @@ CORS(app, origins=config.CORS_ORIGINS)
 session_histories: Dict[str, list] = {}
 session_lock = threading.Lock()
 
-class TransparentThinkingAgent:
+class TripAgent:
     def __init__(self):
-        # Initialize Google Gemini
-        genai.configure(api_key=config.GOOGLE_API_KEY)
-        self.model = genai.GenerativeModel(config.GOOGLE_MODEL)
+        # Initialize LLM provider using factory
+        self.llm_provider = self._initialize_llm_provider()
         
         # Define tools for the City Information Assistant
         self.tools = self._create_tools()
         
         # Create system prompt for the assistant
         self.system_prompt = self._create_system_prompt()
+    
+    def _initialize_llm_provider(self) -> BaseLLMProvider:
+        """Initialize LLM provider using factory pattern"""
+        try:
+            # Try to create provider from default configuration
+            return LLMFactory.create_from_config(config.DEFAULT_LLM_PROVIDER)
+        except Exception as e:
+            print(f"Error initializing {config.DEFAULT_LLM_PROVIDER} provider: {e}")
+            
+            # Fallback to Google Gemini if available
+            if config.GOOGLE_API_KEY and config.DEFAULT_LLM_PROVIDER != "google_gemini":
+                print("Falling back to Google Gemini provider")
+                return LLMFactory.create_from_config("google_gemini")
+            
+            # If no fallback is available, re-raise the exception
+            raise
     
     def _create_tools(self):
         """Create tools for the City Information Assistant"""
@@ -216,7 +232,7 @@ Always think through your approach step by step. Be conversational and helpful."
         return "\n".join(formatted_messages)
     
     def _generate_response(self, message: str, session_id: str) -> dict:
-        """Generate response using Google Gemini"""
+        """Generate response using the current LLM provider"""
         try:
             # Get conversation history
             conversation_context = self._format_conversation_history(session_id)
@@ -229,22 +245,13 @@ Conversation History:
 
 User: {message}"""
             
-            # Generate response
-            response = self.model.generate_content(
-                full_prompt,
-                generation_config=genai.types.GenerationConfig(
-                    temperature=0.7,
-                    max_output_tokens=2048,
-                )
+            # Generate response using the LLM provider
+            result = self.llm_provider.generate_response(
+                prompt=full_prompt,
+                max_tokens=2048
             )
             
-            # Extract response
-            response_content = response.text if response.text else "I apologize, but I couldn't process your request."
-            
-            return {
-                "response": response_content,
-                "success": True
-            }
+            return result
             
         except Exception as e:
             return {
@@ -293,13 +300,22 @@ User: {message}"""
             # Optimize memory before processing
             self._optimize_memory(session_id)
             
-            # Generate response
-            result = self._generate_response(message, session_id)
+            # Get conversation history
+            conversation_context = self._format_conversation_history(session_id)
             
-            # Stream the response
-            response_text = result.get("response", "I apologize, but I couldn't process your request.")
-            for char in response_text:
-                yield f"data: {json.dumps({'token': char, 'type': 'response'})}\n\n"
+            # Prepare the full prompt with context
+            full_prompt = f"""{self.system_prompt}
+
+Conversation History:
+{conversation_context}
+
+User: {message}"""
+            
+            # Stream response using the LLM provider
+            response_text = ""
+            for token in self.llm_provider.stream_response(full_prompt, max_tokens=2048):
+                response_text += token
+                yield f"data: {json.dumps({'token': token, 'type': 'response'})}\n\n"
                 time.sleep(config.STREAMING_DELAY)
             
             # Add to conversation history
@@ -319,12 +335,12 @@ User: {message}"""
             yield f"data: {json.dumps({'token': '', 'type': 'complete'})}\n\n"
 
 # Initialize the agent
-agent = TransparentThinkingAgent()
+agent = TripAgent()
 
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
-    return jsonify({"status": "healthy", "message": "Memory Agentic API is running"})
+    return jsonify({"status": "healthy", "message": "Trip Agent API is running"})
 
 @app.route('/chat', methods=['POST'])
 def chat():
@@ -393,8 +409,64 @@ def clear_memory(session_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/llm/providers', methods=['GET'])
+def get_llm_providers():
+    """Get available LLM providers and their configuration status"""
+    try:
+        providers = LLMFactory.get_available_providers()
+        provider_status = {
+            "google_gemini": config.GOOGLE_API_KEY is not None,
+            "openai": config.OPENAI_API_KEY is not None,
+            "groq": config.GROQ_API_KEY is not None
+        }
+        
+        current_provider = getattr(agent.llm_provider, "provider", config.DEFAULT_LLM_PROVIDER)
+        
+        return jsonify({
+            "available_providers": providers,
+            "configured_providers": provider_status,
+            "current_provider": current_provider,
+            "default_provider": config.DEFAULT_LLM_PROVIDER
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/llm/switch', methods=['POST'])
+def switch_llm_provider():
+    """Switch the active LLM provider"""
+    try:
+        data = request.get_json()
+        provider = data.get('provider')
+        
+        if not provider:
+            return jsonify({"error": "Provider name is required"}), 400
+        
+        if provider not in LLMFactory.get_available_providers():
+            return jsonify({"error": f"Unsupported provider: {provider}"}), 400
+        
+        # Check if provider is configured
+        if provider == "google_gemini" and not config.GOOGLE_API_KEY:
+            return jsonify({"error": "Google Gemini API key is not configured"}), 400
+        elif provider == "openai" and not config.OPENAI_API_KEY:
+            return jsonify({"error": "OpenAI API key is not configured"}), 400
+        elif provider == "groq" and not config.GROQ_API_KEY:
+            return jsonify({"error": "Groq API key is not configured"}), 400
+        
+        # Create new provider
+        try:
+            agent.llm_provider = LLMFactory.create_from_config(provider)
+            return jsonify({
+                "message": f"Switched to {provider} provider",
+                "provider": provider
+            })
+        except Exception as e:
+            return jsonify({"error": f"Failed to initialize {provider} provider: {str(e)}"}), 500
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == '__main__':
-    print(f"\n🚀 Starting Memory Agentic server on {config.FLASK_HOST}:{config.FLASK_PORT}")
+    print(f"\n🚀 Starting Trip Agent server on {config.FLASK_HOST}:{config.FLASK_PORT}")
     print(f"📱 Web interface: http://localhost:{config.FLASK_PORT}")
     print(f"🖥️  Open client.html in your browser to interact with the agent")
     print("\nPress Ctrl+C to stop the server\n")

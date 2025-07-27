@@ -1,27 +1,29 @@
-# Memory Agentic - LangChain React Agent with Optimized Memory Management
+# Trip Agent - Multi-LLM City Information Assistant
 
-A sophisticated AI agent built with LangChain's React framework, featuring Google Gemini integration, optimized memory management using `RunnableWithMessageHistory`, and real-time streaming capabilities through a Flask API.
+A sophisticated AI agent featuring multiple LLM provider support (Google Gemini, OpenAI, Groq-DeepSeek), optimized memory management, and real-time streaming capabilities through a Flask API. The agent specializes in providing city information including weather, time, and facts.
 
 ## 🚀 Features
 
-- **React Agent Framework**: Built using LangChain's React (Reasoning and Acting) pattern
-- **Google Gemini Integration**: Powered by Google's Gemini Pro model for advanced reasoning
-- **Optimized Memory Management**: Uses `RunnableWithMessageHistory` for efficient conversation memory
+- **Multi-LLM Support**: Support for Google Gemini, OpenAI, and Groq-DeepSeek models
+- **LLM Factory Pattern**: Easy switching between different LLM providers
+- **City Information Tools**: Weather, time, facts, and city visit planning tools
 - **Real-time Streaming**: Token-by-token streaming responses via Server-Sent Events (SSE)
 - **Session Management**: Multiple conversation sessions with isolated memory
 - **Memory Optimization**: Automatic memory cleanup to prevent memory bloat
-- **Tool Integration**: Extensible tool system with search, calculator, and memory info tools
-- **Web Interface**: Beautiful HTML client for testing and interaction
+- **Dynamic Provider Switching**: Switch between LLM providers at runtime
+- **Web Interface**: Modern React-based frontend for interaction
+- **API Endpoints**: RESTful API for provider management and chat
 
 ## 🏗️ Architecture
 
 ### Core Components
 
-1. **MemoryOptimizedAgent**: Main agent class with memory management
-2. **RunnableWithMessageHistory**: LangChain's memory management wrapper
-3. **Flask API**: RESTful API with streaming endpoints
-4. **Session Management**: Thread-safe session handling
-5. **Tool System**: Extensible tools for agent capabilities
+1. **LLM Factory**: Factory pattern for creating different LLM providers
+2. **TripAgent**: Main agent class with memory management
+3. **Multi-Provider Support**: Google Gemini, OpenAI, and Groq-DeepSeek integration
+4. **Flask API**: RESTful API with streaming endpoints
+5. **Session Management**: Thread-safe session handling
+6. **City Information Tools**: Specialized tools for city-related queries
 
 ### Memory Management Strategy
 
@@ -33,7 +35,10 @@ A sophisticated AI agent built with LangChain's React framework, featuring Googl
 ## 📋 Prerequisites
 
 - Python 3.8+
-- Google API Key (for Gemini access)
+- At least one LLM provider API key:
+  - Google API Key (for Gemini access)
+  - OpenAI API Key (for GPT models)
+  - Groq API Key (for DeepSeek models)
 - Modern web browser (for the client interface)
 
 ## 🛠️ Installation
@@ -59,14 +64,36 @@ A sophisticated AI agent built with LangChain's React framework, featuring Googl
    cp .env.example .env
    ```
    
-   Edit `.env` and add your Google API key:
+   Edit `.env` and add your API keys (at least one is required):
    ```
-   GOOGLE_API_KEY=your_actual_google_api_key_here
+   # LLM Provider Configuration
+   GOOGLE_API_KEY=your_google_api_key_here
+   OPENAI_API_KEY=your_openai_api_key_here
+   GROQ_API_KEY=your_groq_api_key_here
+   
+   # Default provider (google_gemini, openai, or groq)
+   DEFAULT_LLM_PROVIDER=google_gemini
+   
+   # Model configurations
+   GOOGLE_MODEL=gemini-1.5-flash
+   OPENAI_MODEL=gpt-3.5-turbo
+   GROQ_MODEL=deepseek-r1-distill-llama-70b
    ```
 
-## 🔑 Getting Google API Key
+## 🔑 Getting API Keys
 
+### Google Gemini API Key
 1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. Create a new API key
+3. Copy the key and add it to your `.env` file
+
+### OpenAI API Key
+1. Go to [OpenAI Platform](https://platform.openai.com/api-keys)
+2. Create a new API key
+3. Copy the key and add it to your `.env` file
+
+### Groq API Key
+1. Go to [Groq Console](https://console.groq.com/keys)
 2. Create a new API key
 3. Copy the key and add it to your `.env` file
 
@@ -94,8 +121,23 @@ POST /chat
 Content-Type: application/json
 
 {
-  "message": "Hello, can you help me with math?",
+  "message": "What's the weather like in Paris?",
   "session_id": "user123"
+}
+```
+
+#### Get Available LLM Providers
+```http
+GET /llm/providers
+```
+
+#### Switch LLM Provider
+```http
+POST /llm/switch
+Content-Type: application/json
+
+{
+  "provider": "openai"
 }
 ```
 

@@ -1,4 +1,4 @@
-"""Configuration settings for Memory Agentic system"""
+"""Configuration settings for Trip Agent system"""
 
 import os
 from dotenv import load_dotenv
@@ -7,11 +7,22 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    """Configuration class for the Memory Agentic system"""
+    """Configuration class for the Trip Agent system"""
+    
+    # LLM Provider Configuration
+    DEFAULT_LLM_PROVIDER = os.getenv("DEFAULT_LLM_PROVIDER", "google_gemini")
     
     # Google API Configuration
     GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
     GOOGLE_MODEL = os.getenv("GOOGLE_MODEL", "gemini-1.5-flash")
+    
+    # OpenAI API Configuration
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+    OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
+    
+    # Groq API Configuration
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+    GROQ_MODEL = os.getenv("GROQ_MODEL", "deepseek-r1-distill-llama-70b")
     
     # Flask Configuration
     FLASK_HOST = os.getenv("FLASK_HOST", "0.0.0.0")
@@ -39,8 +50,22 @@ class Config:
         """Validate configuration settings"""
         errors = []
         
-        if not cls.GOOGLE_API_KEY:
-            errors.append("GOOGLE_API_KEY is required")
+        # Check if at least one LLM provider API key is configured
+        if not any([cls.GOOGLE_API_KEY, cls.OPENAI_API_KEY, cls.GROQ_API_KEY]):
+            errors.append("At least one LLM provider API key (GOOGLE_API_KEY, OPENAI_API_KEY, or GROQ_API_KEY) is required")
+        
+        # Validate DEFAULT_LLM_PROVIDER
+        valid_providers = ["google_gemini", "openai", "groq"]
+        if cls.DEFAULT_LLM_PROVIDER not in valid_providers:
+            errors.append(f"DEFAULT_LLM_PROVIDER must be one of: {', '.join(valid_providers)}")
+        
+        # Check if the default provider has an API key
+        if cls.DEFAULT_LLM_PROVIDER == "google_gemini" and not cls.GOOGLE_API_KEY:
+            errors.append("GOOGLE_API_KEY is required when DEFAULT_LLM_PROVIDER is google_gemini")
+        elif cls.DEFAULT_LLM_PROVIDER == "openai" and not cls.OPENAI_API_KEY:
+            errors.append("OPENAI_API_KEY is required when DEFAULT_LLM_PROVIDER is openai")
+        elif cls.DEFAULT_LLM_PROVIDER == "groq" and not cls.GROQ_API_KEY:
+            errors.append("GROQ_API_KEY is required when DEFAULT_LLM_PROVIDER is groq")
         
         if cls.AGENT_TEMPERATURE < 0 or cls.AGENT_TEMPERATURE > 2:
             errors.append("AGENT_TEMPERATURE must be between 0 and 2")
@@ -56,8 +81,11 @@ class Config:
     @classmethod
     def print_config(cls):
         """Print current configuration (excluding sensitive data)"""
-        print("🔧 Memory Agentic Configuration:")
-        print(f"   Model: {cls.GOOGLE_MODEL}")
+        print("🔧 Trip Agent Configuration:")
+        print(f"   Default LLM Provider: {cls.DEFAULT_LLM_PROVIDER}")
+        print(f"   Google Model: {cls.GOOGLE_MODEL}")
+        print(f"   OpenAI Model: {cls.OPENAI_MODEL}")
+        print(f"   Groq Model: {cls.GROQ_MODEL}")
         print(f"   Temperature: {cls.AGENT_TEMPERATURE}")
         print(f"   Max Iterations: {cls.AGENT_MAX_ITERATIONS}")
         print(f"   Memory Max Messages: {cls.MEMORY_MAX_MESSAGES}")
@@ -65,7 +93,9 @@ class Config:
         print(f"   Flask Host: {cls.FLASK_HOST}")
         print(f"   Flask Port: {cls.FLASK_PORT}")
         print(f"   Debug Mode: {cls.FLASK_DEBUG}")
-        print(f"   API Key Set: {'Yes' if cls.GOOGLE_API_KEY else 'No'}")
+        print(f"   Google API Key Set: {'Yes' if cls.GOOGLE_API_KEY else 'No'}")
+        print(f"   OpenAI API Key Set: {'Yes' if cls.OPENAI_API_KEY else 'No'}")
+        print(f"   Groq API Key Set: {'Yes' if cls.GROQ_API_KEY else 'No'}")
 
 # Development configuration
 class DevelopmentConfig(Config):
