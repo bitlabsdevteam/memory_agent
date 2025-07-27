@@ -24,6 +24,17 @@ class Config:
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
     GROQ_MODEL = os.getenv("GROQ_MODEL", "deepseek-r1-distill-llama-70b")
     
+    # Perplexity API Configuration
+    # Support both PPLX_API_KEY (official) and PERPLEXITY_API_KEY (legacy)
+    PERPLEXITY_API_KEY = os.getenv("PPLX_API_KEY") or os.getenv("PERPLEXITY_API_KEY")
+    PERPLEXITY_MODEL = os.getenv("PERPLEXITY_MODEL", "sonar-pro")
+    
+    # LangSmith Configuration (Standard Environment Variables)
+    LANGSMITH_TRACING = os.getenv("LANGSMITH_TRACING", "false").lower() == "true"
+    LANGSMITH_ENDPOINT = os.getenv("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com")
+    LANGSMITH_API_KEY = os.getenv("LANGSMITH_API_KEY")
+    LANGSMITH_PROJECT = os.getenv("LANGSMITH_PROJECT", "trip-agent")
+    
     # Flask Configuration
     FLASK_HOST = os.getenv("FLASK_HOST", "0.0.0.0")
     FLASK_PORT = int(os.getenv("FLASK_PORT", 5000))
@@ -51,11 +62,11 @@ class Config:
         errors = []
         
         # Check if at least one LLM provider API key is configured
-        if not any([cls.GOOGLE_API_KEY, cls.OPENAI_API_KEY, cls.GROQ_API_KEY]):
-            errors.append("At least one LLM provider API key (GOOGLE_API_KEY, OPENAI_API_KEY, or GROQ_API_KEY) is required")
+        if not any([cls.GOOGLE_API_KEY, cls.OPENAI_API_KEY, cls.GROQ_API_KEY, cls.PERPLEXITY_API_KEY]):
+            errors.append("At least one LLM provider API key (GOOGLE_API_KEY, OPENAI_API_KEY, GROQ_API_KEY, or PERPLEXITY_API_KEY) is required")
         
         # Validate DEFAULT_LLM_PROVIDER
-        valid_providers = ["google_gemini", "openai", "groq"]
+        valid_providers = ["google_gemini", "openai", "groq", "perplexity"]
         if cls.DEFAULT_LLM_PROVIDER not in valid_providers:
             errors.append(f"DEFAULT_LLM_PROVIDER must be one of: {', '.join(valid_providers)}")
         
@@ -66,6 +77,8 @@ class Config:
             errors.append("OPENAI_API_KEY is required when DEFAULT_LLM_PROVIDER is openai")
         elif cls.DEFAULT_LLM_PROVIDER == "groq" and not cls.GROQ_API_KEY:
             errors.append("GROQ_API_KEY is required when DEFAULT_LLM_PROVIDER is groq")
+        elif cls.DEFAULT_LLM_PROVIDER == "perplexity" and not cls.PERPLEXITY_API_KEY:
+            errors.append("PERPLEXITY_API_KEY is required when DEFAULT_LLM_PROVIDER is perplexity")
         
         if cls.AGENT_TEMPERATURE < 0 or cls.AGENT_TEMPERATURE > 2:
             errors.append("AGENT_TEMPERATURE must be between 0 and 2")
@@ -86,6 +99,7 @@ class Config:
         print(f"   Google Model: {cls.GOOGLE_MODEL}")
         print(f"   OpenAI Model: {cls.OPENAI_MODEL}")
         print(f"   Groq Model: {cls.GROQ_MODEL}")
+        print(f"   Perplexity Model: {cls.PERPLEXITY_MODEL}")
         print(f"   Temperature: {cls.AGENT_TEMPERATURE}")
         print(f"   Max Iterations: {cls.AGENT_MAX_ITERATIONS}")
         print(f"   Memory Max Messages: {cls.MEMORY_MAX_MESSAGES}")
@@ -96,6 +110,10 @@ class Config:
         print(f"   Google API Key Set: {'Yes' if cls.GOOGLE_API_KEY else 'No'}")
         print(f"   OpenAI API Key Set: {'Yes' if cls.OPENAI_API_KEY else 'No'}")
         print(f"   Groq API Key Set: {'Yes' if cls.GROQ_API_KEY else 'No'}")
+        print(f"   Perplexity API Key Set: {'Yes' if cls.PERPLEXITY_API_KEY else 'No'}")
+        print(f"   LangSmith Tracing: {'Enabled' if cls.LANGSMITH_TRACING else 'Disabled'}")
+        print(f"   LangSmith Project: {cls.LANGSMITH_PROJECT}")
+        print(f"   LangSmith API Key Set: {'Yes' if cls.LANGSMITH_API_KEY else 'No'}")
 
 # Development configuration
 class DevelopmentConfig(Config):
