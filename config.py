@@ -1,4 +1,4 @@
-"""Configuration settings for Trip Agent system"""
+"""Configuration settings for Trip Advisor - AI Agent system"""
 
 import os
 from dotenv import load_dotenv
@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    """Configuration class for the Trip Agent system"""
+    """Configuration class for the Trip Advisor - AI Agent system"""
     
     # LLM Provider Configuration
     DEFAULT_LLM_PROVIDER = os.getenv("DEFAULT_LLM_PROVIDER", "google_gemini")
@@ -37,7 +37,7 @@ class Config:
     
     # Flask Configuration
     FLASK_HOST = os.getenv("FLASK_HOST", "0.0.0.0")
-    FLASK_PORT = int(os.getenv("FLASK_PORT", 5000))
+    FLASK_PORT = int(os.getenv("FLASK_PORT", 5001))
     FLASK_DEBUG = os.getenv("FLASK_DEBUG", "True").lower() == "true"
     
     # Agent Configuration
@@ -94,7 +94,7 @@ class Config:
     @classmethod
     def print_config(cls):
         """Print current configuration (excluding sensitive data)"""
-        print("🔧 Trip Agent Configuration:")
+        print("🔧 Trip Advisor - AI Agent Configuration:")
         print(f"   Default LLM Provider: {cls.DEFAULT_LLM_PROVIDER}")
         print(f"   Google Model: {cls.GOOGLE_MODEL}")
         print(f"   OpenAI Model: {cls.OPENAI_MODEL}")
@@ -126,7 +126,7 @@ class ProductionConfig(Config):
     """Production-specific configuration"""
     FLASK_DEBUG = False
     AGENT_VERBOSE = False
-    FLASK_HOST = "127.0.0.1"  # More secure for production
+    FLASK_HOST = "0.0.0.0"  # Allow external connections in Docker
 
 # Testing configuration
 class TestingConfig(Config):

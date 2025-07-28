@@ -12,6 +12,12 @@ class TokenType(Enum):
     THINKING_START = "thinking_start"
     THINKING = "thinking"
     THINKING_END = "thinking_end"
+    TOOL_CALL_START = "tool_call_start"
+    TOOL_CALL = "tool_call"
+    TOOL_CALL_END = "tool_call_end"
+    TOOL_RESULT_START = "tool_result_start"
+    TOOL_RESULT = "tool_result"
+    TOOL_RESULT_END = "tool_result_end"
     RESPONSE = "response"
     ERROR = "error"
     COMPLETE = "complete"
@@ -41,9 +47,18 @@ class OutputParser:
             r'</analysis>'
         ]
         
+        # Regex patterns for tool calls
+        self.tool_call_patterns = [
+            r'TOOL_CALL:\s*(\w+)\(([^)]*)\)',
+            r'Using tool:\s*(\w+)\s*with\s*parameters?\s*([^\n]*)',
+            r'Calling\s*(\w+)\s*tool\s*with\s*([^\n]*)',
+            r'\[(\w+)\]\s*\(([^)]*)\)'
+        ]
+        
         # Compiled regex for efficiency
         self.thinking_start_regex = re.compile('|'.join(self.thinking_start_patterns), re.IGNORECASE)
         self.thinking_end_regex = re.compile('|'.join(self.thinking_end_patterns), re.IGNORECASE)
+        self.tool_call_regex = re.compile('|'.join(self.tool_call_patterns), re.IGNORECASE)
         
         # Terminal logging configuration
         self.enable_terminal_logging = enable_terminal_logging
@@ -56,8 +71,12 @@ class OutputParser:
         self.in_thinking = False
         self.thinking_started = False
         self.thinking_ended = False
+        self.in_tool_call = False
+        self.tool_call_detected = False
+        self.current_tool_call = ""
         self.accumulated_response = ""
         self.accumulated_thinking = ""
+        self.accumulated_tool_calls = []
         self.final_response = ""
     
     def _log_to_terminal(self, message: str, message_type: str = "info"):
@@ -70,6 +89,10 @@ class OutputParser:
             "thinking_start": "\033[96m",  # Cyan
             "thinking": "\033[94m",       # Blue
             "thinking_end": "\033[96m",   # Cyan
+            "tool_call_start": "\033[95m", # Magenta
+            "tool_call": "\033[35m",      # Purple
+            "tool_call_end": "\033[95m",  # Magenta
+            "tool_result": "\033[33m",    # Yellow
             "response": "\033[92m",       # Green
             "error": "\033[91m",          # Red
             "info": "\033[93m"            # Yellow
@@ -85,6 +108,14 @@ class OutputParser:
         elif message_type == "thinking":
             # Print thinking content in real-time
             print(f"{color}{message}{reset_color}", end="", file=sys.stderr, flush=True)
+        elif message_type == "tool_call_start":
+            print(f"\n{color}🔧 [TOOL CALL] Executing function call...{reset_color}", file=sys.stderr)
+        elif message_type == "tool_call":
+            print(f"{color}🔧 {message}{reset_color}", file=sys.stderr)
+        elif message_type == "tool_call_end":
+            print(f"{color}🔧 [TOOL CALL] Function execution complete.{reset_color}\n", file=sys.stderr)
+        elif message_type == "tool_result":
+            print(f"{color}📋 [TOOL RESULT] {message}{reset_color}", file=sys.stderr)
         elif message_type == "response":
             # Don't log response content to avoid duplication
             pass
@@ -125,7 +156,7 @@ class OutputParser:
             self.in_thinking = True
             self.thinking_started = True
             # Log to terminal
-            self._log_to_terminal("", "thinking_start")
+            self._log_to_terminal("thinking_start", "")
             yield ParsedToken(
                 content="",
                 token_type=TokenType.THINKING_START,
@@ -139,7 +170,7 @@ class OutputParser:
             self.in_thinking = False
             self.thinking_ended = True
             # Log to terminal
-            self._log_to_terminal("", "thinking_end")
+            self._log_to_terminal("thinking_end", "")
             yield ParsedToken(
                 content="",
                 token_type=TokenType.THINKING_END,
@@ -154,11 +185,42 @@ class OutputParser:
         # Clean the token for content extraction
         clean_token = self.clean_token(token)
         
+        # Check for tool calls in thinking content
+        if self.in_thinking and clean_token:
+            tool_match = self.tool_call_regex.search(clean_token)
+            if tool_match and not self.tool_call_detected:
+                self.tool_call_detected = True
+                self.in_tool_call = True
+                tool_name = tool_match.group(1) if tool_match.group(1) else "unknown"
+                tool_params = tool_match.group(2) if len(tool_match.groups()) > 1 else ""
+                tool_call_info = f"Tool: {tool_name}, Parameters: {tool_params}"
+                self.current_tool_call = tool_call_info
+                self.accumulated_tool_calls.append(tool_call_info)
+                self._log_to_terminal("tool_call_start", "")
+                yield ParsedToken(
+                    content="",
+                    token_type=TokenType.TOOL_CALL_START,
+                    metadata={"tool_name": tool_name}
+                )
+                self._log_to_terminal("tool_call", tool_call_info)
+                yield ParsedToken(
+                    content=tool_call_info,
+                    token_type=TokenType.TOOL_CALL,
+                    metadata={"tool_name": tool_name, "parameters": tool_params}
+                )
+                self._log_to_terminal("tool_call_end", "")
+                yield ParsedToken(
+                    content="",
+                    token_type=TokenType.TOOL_CALL_END,
+                    metadata={"tool_name": tool_name}
+                )
+                self.in_tool_call = False
+        
         # Yield appropriate content based on current state
         if self.in_thinking and clean_token:
             self.accumulated_thinking += clean_token
             # Log thinking content to terminal in real-time
-            self._log_to_terminal(clean_token, "thinking")
+            self._log_to_terminal("thinking", clean_token)
             yield ParsedToken(
                 content=clean_token,
                 token_type=TokenType.THINKING,

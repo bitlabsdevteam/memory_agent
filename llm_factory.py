@@ -17,7 +17,7 @@ except ImportError:
     RateLimitError = None
 
 try:
-    from langchain_perplexity import ChatPerplexity
+    from langchain_community.chat_models.perplexity import ChatPerplexity
 except ImportError:
     ChatPerplexity = None
 
@@ -49,10 +49,11 @@ def exponential_backoff_retry(func, max_retries=6, base_delay=1, max_delay=60):
 class BaseLLMProvider(ABC):
     """Abstract base class for LLM providers"""
     
-    def __init__(self, api_key: str, model_name: str, temperature: float = 0.7):
+    def __init__(self, api_key: str, model_name: str, temperature: float = 0.7, tools: Optional[Dict] = None):
         self.api_key = api_key
         self.model_name = model_name
         self.temperature = temperature
+        self.tools = tools or {}
         self._initialize()
     
     @abstractmethod
@@ -69,6 +70,31 @@ class BaseLLMProvider(ABC):
     def stream_response(self, prompt: str, max_tokens: int = 2048) -> Generator[str, None, None]:
         """Stream response from the LLM"""
         pass
+    
+    def _execute_tool(self, tool_name: str, **kwargs) -> str:
+        """Execute a tool function"""
+        if tool_name in self.tools:
+            try:
+                return self.tools[tool_name](**kwargs)
+            except Exception as e:
+                return f"Error executing {tool_name}: {str(e)}"
+        return f"Tool {tool_name} not found"
+    
+    def _format_tools_for_prompt(self) -> str:
+        """Format available tools for the prompt"""
+        if not self.tools:
+            return ""
+        
+        tools_description = "\n\nAvailable Tools:\n"
+        for tool_name, tool_func in self.tools.items():
+            # Get function signature and docstring
+            import inspect
+            sig = inspect.signature(tool_func)
+            doc = tool_func.__doc__ or "No description available"
+            tools_description += f"- {tool_name}{sig}: {doc}\n"
+        
+        tools_description += "\nTo use a tool, include in your response: TOOL_CALL: {tool_name}({parameters})\n"
+        return tools_description
 
 class GoogleGeminiProvider(BaseLLMProvider):
     """Google Gemini LLM Provider"""
@@ -80,10 +106,13 @@ class GoogleGeminiProvider(BaseLLMProvider):
         self.model = genai.GenerativeModel(self.model_name)
     
     def generate_response(self, prompt: str, max_tokens: int = 2048) -> Dict[str, Any]:
-        """Generate response using Google Gemini"""
+        """Generate response using Google Gemini with tool calling support"""
         try:
+            # Add tools information to prompt
+            enhanced_prompt = prompt + self._format_tools_for_prompt()
+            
             response = self.model.generate_content(
-                prompt,
+                enhanced_prompt,
                 generation_config=genai.types.GenerationConfig(
                     temperature=self.temperature,
                     max_output_tokens=max_tokens,
@@ -92,8 +121,11 @@ class GoogleGeminiProvider(BaseLLMProvider):
             
             response_text = response.text if response.text else "I apologize, but I couldn't process your request."
             
+            # Process tool calls in the response
+            processed_response = self._process_tool_calls(response_text)
+            
             return {
-                "response": response_text,
+                "response": processed_response,
                 "success": True,
                 "provider": "google_gemini",
                 "model": self.model_name
@@ -108,10 +140,13 @@ class GoogleGeminiProvider(BaseLLMProvider):
             }
     
     def stream_response(self, prompt: str, max_tokens: int = 2048) -> Generator[str, None, None]:
-        """Stream response from Google Gemini"""
+        """Stream response from Google Gemini with tool calling support"""
         try:
+            # Add tools information to prompt
+            enhanced_prompt = prompt + self._format_tools_for_prompt()
+            
             response = self.model.generate_content(
-                prompt,
+                enhanced_prompt,
                 generation_config=genai.types.GenerationConfig(
                     temperature=self.temperature,
                     max_output_tokens=max_tokens,
@@ -119,12 +154,72 @@ class GoogleGeminiProvider(BaseLLMProvider):
                 stream=True
             )
             
+            accumulated_text = ""
             for chunk in response:
                 if chunk.text:
+                    accumulated_text += chunk.text
                     yield chunk.text
+            
+            # Process any tool calls after streaming is complete
+            if "TOOL_CALL:" in accumulated_text:
+                tool_results = self._extract_and_execute_tools(accumulated_text)
+                if tool_results:
+                    yield "\n\n" + tool_results
                     
         except Exception as e:
             yield f"Error streaming response: {str(e)}"
+
+    def _process_tool_calls(self, response_text: str) -> str:
+        """Process tool calls in the response text"""
+        if "TOOL_CALL:" not in response_text:
+            return response_text
+        
+        # Extract and execute tool calls
+        tool_results = self._extract_and_execute_tools(response_text)
+        
+        # Replace tool calls with results
+        import re
+        pattern = r'TOOL_CALL:\s*(\w+)\(([^)]*)\)'
+        
+        def replace_tool_call(match):
+            return tool_results if tool_results else "Tool execution failed"
+        
+        processed_text = re.sub(pattern, replace_tool_call, response_text)
+        return processed_text
+    
+    def _extract_and_execute_tools(self, text: str) -> str:
+        """Extract and execute tool calls from text"""
+        import re
+        import ast
+        
+        pattern = r'TOOL_CALL:\s*(\w+)\(([^)]*)\)'
+        matches = re.findall(pattern, text)
+        
+        results = []
+        for tool_name, params_str in matches:
+            try:
+                # Parse parameters
+                if params_str.strip():
+                    # Try to evaluate as Python literals
+                    try:
+                        params = ast.literal_eval(f"({params_str})")
+                        if isinstance(params, tuple) and len(params) == 1:
+                            params = params[0]
+                        kwargs = {"city": params} if isinstance(params, str) else {}
+                    except:
+                        # Fallback: treat as string parameter
+                        kwargs = {"city": params_str.strip('"\'')} 
+                else:
+                    kwargs = {}
+                
+                # Execute tool
+                result = self._execute_tool(tool_name, **kwargs)
+                results.append(f"\n\n**{tool_name} Result:**\n{result}")
+                
+            except Exception as e:
+                results.append(f"\n\n**{tool_name} Error:**\n{str(e)}")
+        
+        return "\n".join(results)
 
 class OpenAIProvider(BaseLLMProvider):
     """OpenAI LLM Provider using LangChain with Rate Limiting"""
@@ -424,13 +519,13 @@ class LLMFactory:
     }
     
     @classmethod
-    def create_provider(cls, provider_name: str, api_key: str, model_name: str, temperature: float = 0.7) -> BaseLLMProvider:
+    def create_provider(cls, provider_name: str, api_key: str, model_name: str, temperature: float = 0.7, tools: Optional[Dict] = None) -> BaseLLMProvider:
         """Create an LLM provider instance"""
         if provider_name not in cls.PROVIDERS:
             raise ValueError(f"Unsupported provider: {provider_name}. Supported providers: {list(cls.PROVIDERS.keys())}")
         
         provider_class = cls.PROVIDERS[provider_name]
-        return provider_class(api_key, model_name, temperature)
+        return provider_class(api_key, model_name, temperature, tools)
     
     @classmethod
     def get_available_providers(cls) -> list:
@@ -438,7 +533,7 @@ class LLMFactory:
         return list(cls.PROVIDERS.keys())
     
     @classmethod
-    def create_from_config(cls, provider_name: str) -> BaseLLMProvider:
+    def create_from_config(cls, provider_name: str, tools: Optional[Dict] = None) -> BaseLLMProvider:
         """Create provider from configuration"""
         # Map provider names to config attributes
         provider_configs = {
@@ -474,5 +569,6 @@ class LLMFactory:
             provider_name=provider_name,
             api_key=api_key,
             model_name=model_name,
-            temperature=getattr(config, "AGENT_TEMPERATURE", 0.7)
+            temperature=getattr(config, "AGENT_TEMPERATURE", 0.7),
+            tools=tools
         )

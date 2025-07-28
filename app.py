@@ -47,8 +47,8 @@ CORS(app, origins=config.CORS_ORIGINS)
 api = Api(
     app,
     version='1.0',
-    title='Trip Agent API',
-    description='A City Information Assistant API with LLM capabilities',
+    title='Trip Advisor - AI Agent API',
+    description='A Trip Advisor AI Agent API with LLM capabilities',
     doc='/docs/',
     prefix='/api/v1'
 )
@@ -113,14 +113,14 @@ session_lock = threading.Lock()
 
 class TripAgent:
     def __init__(self):
-        # Initialize LLM provider using factory
+        # Define tools for the Trip Advisor - AI Agent first
+        self.tools = self._create_tools()
+        
+        # Initialize LLM provider using factory (now tools are available)
         self.llm_provider = self._initialize_llm_provider()
         
         # Initialize output parser for standardized response processing with terminal logging
         self.output_parser = OutputParser(enable_terminal_logging=True)
-        
-        # Define tools for the City Information Assistant
-        self.tools = self._create_tools()
         
         # Create system prompt for the assistant
         self.system_prompt = self._create_system_prompt()
@@ -131,21 +131,21 @@ class TripAgent:
     def _initialize_llm_provider(self) -> BaseLLMProvider:
         """Initialize LLM provider using factory pattern"""
         try:
-            # Try to create provider from default configuration
-            return LLMFactory.create_from_config(config.DEFAULT_LLM_PROVIDER)
+            # Try to create provider from default configuration with tools
+            return LLMFactory.create_from_config(config.DEFAULT_LLM_PROVIDER, self.tools)
         except Exception as e:
             print(f"Error initializing {config.DEFAULT_LLM_PROVIDER} provider: {e}")
             
             # Fallback to Google Gemini if available
             if config.GOOGLE_API_KEY and config.DEFAULT_LLM_PROVIDER != "google_gemini":
                 print("Falling back to Google Gemini provider")
-                return LLMFactory.create_from_config("google_gemini")
+                return LLMFactory.create_from_config("google_gemini", self.tools)
             
             # If no fallback is available, re-raise the exception
             raise
     
     def _create_tools(self):
-        """Create tools for the City Information Assistant"""
+        """Create tools for the Trip Advisor - AI Agent"""
         
         def weather_tool(city: str) -> str:
             """Get current weather for a city using OpenWeatherMap API"""
@@ -277,8 +277,8 @@ class TripAgent:
         }
     
     def _create_system_prompt(self):
-        """Create the system prompt for City Information Assistant"""
-        return """You are a City Information Assistant that helps users gather factual information about cities around the world. You specialize in providing weather information, current local time, and basic city facts.
+        """Create the system prompt for Trip Advisor - AI Agent"""
+        return """You are a Trip Advisor - AI Agent that helps users gather factual information about cities around the world. You specialize in providing weather information, current local time, and basic city facts.
 
 You have access to the following tools:
 - WeatherTool: Get current weather for a city
@@ -452,7 +452,12 @@ User: {message}"""
                 yield sse_data
                 
                 # Add streaming delay except for control tokens
-                if parsed_token.token_type not in [TokenType.THINKING_START, TokenType.THINKING_END, TokenType.COMPLETE]:
+                if parsed_token.token_type not in [
+                    TokenType.THINKING_START, TokenType.THINKING_END, 
+                    TokenType.TOOL_CALL_START, TokenType.TOOL_CALL_END,
+                    TokenType.TOOL_RESULT_START, TokenType.TOOL_RESULT_END,
+                    TokenType.COMPLETE
+                ]:
                     time.sleep(config.STREAMING_DELAY)
             
             # Add to conversation history (store only the final response, not thinking)
@@ -482,7 +487,7 @@ class HealthCheck(Resource):
     @health_ns.marshal_with(health_response)
     def get(self):
         """Health check endpoint"""
-        return {"status": "healthy", "message": "Trip Agent API is running"}
+        return {"status": "healthy", "message": "Trip Advisor - AI Agent API is running"}
 
 # Chat endpoint
 @chat_ns.route('')
@@ -507,7 +512,7 @@ class Chat(Resource):
             # Switch provider if specified
             if provider and provider != getattr(agent.llm_provider, "provider", config.DEFAULT_LLM_PROVIDER):
                 try:
-                    agent.llm_provider = LLMFactory.create_from_config(provider)
+                    agent.llm_provider = LLMFactory.create_from_config(provider, agent.tools)
                 except Exception as e:
                     return {"error": f"Failed to switch to {provider}: {str(e)}"}, 500
             
@@ -644,7 +649,7 @@ class LLMSwitch(Resource):
             
             # Create new provider
             try:
-                agent.llm_provider = LLMFactory.create_from_config(provider)
+                agent.llm_provider = LLMFactory.create_from_config(provider, agent.tools)
                 return {
                     "message": f"Switched to {provider} provider",
                     "provider": provider
@@ -659,7 +664,7 @@ class LLMSwitch(Resource):
 @app.route('/health', methods=['GET'])
 def health_check_legacy():
     """Legacy health check endpoint for backward compatibility"""
-    return jsonify({"status": "healthy", "message": "Trip Agent API is running"})
+    return jsonify({"status": "healthy", "message": "Trip Advisor - AI Agent API is running"})
 
 @app.route('/chat', methods=['POST'])
 def chat_legacy():
@@ -677,7 +682,7 @@ def chat_legacy():
         # Switch provider if specified
         if provider and provider != getattr(agent.llm_provider, "provider", config.DEFAULT_LLM_PROVIDER):
             try:
-                agent.llm_provider = LLMFactory.create_from_config(provider)
+                agent.llm_provider = LLMFactory.create_from_config(provider, agent.tools)
             except Exception as e:
                 return jsonify({"error": f"Failed to switch to {provider}: {str(e)}"}), 500
         
@@ -704,7 +709,7 @@ def chat_legacy():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    print(f"\n🚀 Starting Trip Agent server on {config.FLASK_HOST}:{config.FLASK_PORT}")
+    print(f"\n🚀 Starting Trip Advisor - AI Agent server on {config.FLASK_HOST}:{config.FLASK_PORT}")
     print(f"📱 Web interface: http://localhost:{config.FLASK_PORT}")
     print(f"🖥️  Open client.html in your browser to interact with the agent")
     print("\nPress Ctrl+C to stop the server\n")

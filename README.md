@@ -1,4 +1,4 @@
-# Trip Agent - Multi-LLM City Information Assistant
+# Trip Advisor - AI Agent - Multi-LLM Travel Assistant
 
 A sophisticated AI agent featuring multiple LLM provider support (Google Gemini, OpenAI, Groq-DeepSeek), optimized memory management, and real-time streaming capabilities through a Flask API. The agent specializes in providing city information including weather, time, and facts.
 
@@ -279,7 +279,7 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 
 ---
 
-**Built with ❤️ using LangChain, Google Gemini, and Flask**# 🏙️ City Information Assistant
+**Built with ❤️ using LangChain, Google Gemini, and Flask**# 🏙️ Trip Advisor - AI Agent
 
 An intelligent AI agent that helps users gather factual information about cities worldwide. This assistant demonstrates advanced agentic capabilities including tool orchestration, function calling, contextual dialogue handling, streaming API interface, and transparent reasoning.
 
