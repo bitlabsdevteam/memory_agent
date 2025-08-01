@@ -14,12 +14,19 @@ interface LLMProviderDropdownProps {
   onNewSession?: () => void;
 }
 
+interface ConfirmationState {
+  show: boolean;
+  message: string;
+  type: 'success' | 'info';
+}
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
 
 export default function LLMProviderDropdown({ onProviderChange, currentProvider, isSessionActive = false, onNewSession }: LLMProviderDropdownProps) {
   const [providers, setProviders] = useState<LLMProvider[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<ConfirmationState>({ show: false, message: '', type: 'success' });
   
   // Fetch available providers on component mount
   useEffect(() => {
@@ -63,6 +70,7 @@ export default function LLMProviderDropdown({ onProviderChange, currentProvider,
     try {
       setIsLoading(true);
       setError(null);
+      setConfirmation({ show: false, message: '', type: 'success' });
       
       const response = await fetch(`${API_BASE_URL}/api/v1/llm/switch`, {
         method: 'POST',
@@ -77,8 +85,36 @@ export default function LLMProviderDropdown({ onProviderChange, currentProvider,
         throw new Error(errorData.error || `Failed to switch provider: ${response.status}`);
       }
       
+      const responseData = await response.json();
+      const providerDisplay = getProviderDisplay(providerName);
+      
+      // Log to console
+      console.log('✅ LLM Provider Switch Successful:', {
+        provider: providerName,
+        displayName: providerDisplay.display,
+        timestamp: new Date().toISOString(),
+        response: responseData
+      });
+      
+      // Show confirmation UI
+      setConfirmation({
+        show: true,
+        message: `Successfully connected to ${providerDisplay.display}`,
+        type: 'success'
+      });
+      
+      // Hide confirmation after 3 seconds
+      setTimeout(() => {
+        setConfirmation({ show: false, message: '', type: 'success' });
+      }, 3000);
+      
       onProviderChange(providerName);
     } catch (error) {
+      console.error('❌ LLM Provider Switch Failed:', {
+        provider: providerName,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
       setError(error instanceof Error ? error.message : 'Failed to switch provider');
     } finally {
       setIsLoading(false);
@@ -167,6 +203,20 @@ export default function LLMProviderDropdown({ onProviderChange, currentProvider,
       {error && (
         <div className="mt-2 text-xs text-red-500">
           {error}
+        </div>
+      )}
+      
+      {/* Confirmation message */}
+      {confirmation.show && (
+        <div className={`mt-2 p-2 rounded text-xs font-medium transition-all duration-300 ${
+          confirmation.type === 'success' 
+            ? 'bg-green-50 border border-green-200 text-green-700' 
+            : 'bg-blue-50 border border-blue-200 text-blue-700'
+        }`}>
+          <div className="flex items-center space-x-2">
+            <span>{confirmation.type === 'success' ? '✅' : 'ℹ️'}</span>
+            <span>{confirmation.message}</span>
+          </div>
         </div>
       )}
     </div>

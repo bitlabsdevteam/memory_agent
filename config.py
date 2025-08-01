@@ -29,6 +29,12 @@ class Config:
     PERPLEXITY_API_KEY = os.getenv("PPLX_API_KEY") or os.getenv("PERPLEXITY_API_KEY")
     PERPLEXITY_MODEL = os.getenv("PERPLEXITY_MODEL", "sonar-pro")
     
+    # Travel Tools API Configuration
+    OPENWEATHERMAP_API_KEY = os.getenv("OPENWEATHERMAP_API_KEY")
+    TIMEZONEDB_API_KEY = os.getenv("TIMEZONEDB_API_KEY")
+    GEODB_API_KEY = os.getenv("GEODB_API_KEY")  # Optional for GeoDB Cities API
+    WIKIPEDIA_API_ENABLED = os.getenv("WIKIPEDIA_API_ENABLED", "true").lower() == "true"
+    
     # LangSmith Configuration (Standard Environment Variables)
     LANGSMITH_TRACING = os.getenv("LANGSMITH_TRACING", "false").lower() == "true"
     LANGSMITH_ENDPOINT = os.getenv("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com")
@@ -114,6 +120,10 @@ class Config:
         print(f"   LangSmith Tracing: {'Enabled' if cls.LANGSMITH_TRACING else 'Disabled'}")
         print(f"   LangSmith Project: {cls.LANGSMITH_PROJECT}")
         print(f"   LangSmith API Key Set: {'Yes' if cls.LANGSMITH_API_KEY else 'No'}")
+        print(f"   OpenWeatherMap API Key Set: {'Yes' if cls.OPENWEATHERMAP_API_KEY else 'No'}")
+        print(f"   TimeZoneDB API Key Set: {'Yes' if cls.TIMEZONEDB_API_KEY else 'No'}")
+        print(f"   GeoDB API Key Set: {'Yes' if cls.GEODB_API_KEY else 'No'}")
+        print(f"   Wikipedia API Enabled: {'Yes' if cls.WIKIPEDIA_API_ENABLED else 'No'}")
 
 # Development configuration
 class DevelopmentConfig(Config):

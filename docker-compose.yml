@@ -6,10 +6,11 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "5001:5002"
+      - "5001:5001"
     environment:
       - FLASK_ENV=production
       - FLASK_APP=app.py
+      - FLASK_PORT=5001
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/memory_agent
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432

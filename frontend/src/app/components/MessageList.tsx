@@ -120,8 +120,16 @@ export default function MessageList({ messages, isLoading }: MessageListProps) {
           <div className={`max-w-xs lg:max-w-2xl px-4 py-3 rounded-2xl ${getMessageStyle(message.type)} facebook-card`}>
             <div key={`content-${message.id}-${message.content.length}`} className="break-words leading-relaxed">
               {message.type === 'thinking' ? (
-                <div className="flex items-center space-x-2">
-                  <ThinkingDots />
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm font-medium">🧠 Thinking</span>
+                    <ThinkingDots size="sm" />
+                  </div>
+                  {message.content && (
+                    <div className="text-sm text-gray-600 font-mono bg-gray-50 p-2 rounded border-l-4 border-blue-300">
+                      {message.content.replace(/^>\s*/, '')}
+                    </div>
+                  )}
                 </div>
               ) : (
                 message.content.replace(/^>\s*/, '')

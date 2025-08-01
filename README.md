@@ -82,20 +82,46 @@ A sophisticated AI agent featuring multiple LLM provider support (Google Gemini,
 
 ## 🔑 Getting API Keys
 
-### Google Gemini API Key
+### LLM Provider API Keys (Required - At least one)
+
+#### Google Gemini API Key
 1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
 2. Create a new API key
 3. Copy the key and add it to your `.env` file
 
-### OpenAI API Key
+#### OpenAI API Key
 1. Go to [OpenAI Platform](https://platform.openai.com/api-keys)
 2. Create a new API key
 3. Copy the key and add it to your `.env` file
 
-### Groq API Key
+#### Groq API Key
 1. Go to [Groq Console](https://console.groq.com/keys)
 2. Create a new API key
 3. Copy the key and add it to your `.env` file
+
+### Travel Tools API Keys (Optional - For Enhanced Functionality)
+
+The travel agent can work with mock data, but for real-time information, configure these APIs:
+
+#### OpenWeatherMap API Key (For WeatherTool)
+1. Go to [OpenWeatherMap API](https://openweathermap.org/api)
+2. Sign up for a free account
+3. Generate an API key
+4. Add `OPENWEATHERMAP_API_KEY=your_key_here` to your `.env` file
+
+#### TimeZoneDB API Key (For TimeTool)
+1. Go to [TimeZoneDB](https://timezonedb.com/api)
+2. Sign up for a free account
+3. Generate an API key
+4. Add `TIMEZONEDB_API_KEY=your_key_here` to your `.env` file
+
+#### GeoDB Cities API Key (For CityFactsTool - Optional)
+1. Go to [RapidAPI GeoDB Cities](https://rapidapi.com/wirefreethought/api/geodb-cities)
+2. Subscribe to the API (free tier available)
+3. Get your RapidAPI key
+4. Add `GEODB_API_KEY=your_key_here` to your `.env` file
+
+**Note**: If travel API keys are not configured, the tools will use mock data with clear indicators.
 
 ## 🚀 Usage
 
@@ -179,26 +205,57 @@ self.llm = ChatGoogleGenerativeAI(
 
 ## 🛠️ Available Tools
 
-The agent comes with built-in tools:
+The travel agent comes with specialized tools for city information:
 
-1. **Search Tool**: Simulated web search functionality
-2. **Calculator Tool**: Mathematical calculations
-3. **Memory Info Tool**: Conversation memory statistics
+### Core Travel Tools
+
+1. **WeatherTool**: Get current weather information for any city
+   - Uses OpenWeatherMap API when configured
+   - Provides temperature, conditions, humidity
+   - Falls back to mock data if API key not configured
+
+2. **TimeTool**: Get current local time for any city
+   - Uses TimeZoneDB API when configured
+   - Provides accurate timezone information
+   - Falls back to mock data if API key not configured
+
+3. **CityFactsTool**: Get basic facts about cities
+   - Uses GeoDB Cities API and Wikipedia API when configured
+   - Provides population, country, and description
+   - Falls back to curated mock data if APIs not configured
+
+4. **PlanMyCityVisitTool**: Composite tool for trip planning
+   - Combines weather, time, and city facts
+   - Provides comprehensive city information
+   - Perfect for travel planning queries
+
+### Tool Usage Examples
+
+```
+User: "What's the weather like in Paris?"
+Agent: Uses WeatherTool to get current weather
+
+User: "What time is it in Tokyo?"
+Agent: Uses TimeTool to get current local time
+
+User: "Tell me about London"
+Agent: Uses CityFactsTool to get city information
+
+User: "I'm planning to visit Sydney"
+Agent: Uses PlanMyCityVisitTool for comprehensive information
+```
 
 ### Adding Custom Tools
 
-Extend the `_create_tools()` method in `MemoryOptimizedAgent`:
+Extend the `_create_tools()` method in `TripAgent`:
 
 ```python
 def custom_tool(input_text: str) -> str:
     """Your custom tool implementation"""
     return f"Custom result for: {input_text}"
 
-tools.append(Tool(
-    name="custom_tool",
-    description="Description of what your tool does",
-    func=custom_tool
-))
+# Add to tools dictionary
+tools["CustomTool"] = custom_tool
 ```
 
 ## 📊 Memory Management Details

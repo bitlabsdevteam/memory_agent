@@ -146,134 +146,19 @@ class TripAgent:
     
     def _create_tools(self):
         """Create tools for the Trip Advisor - AI Agent"""
+        from tools import WeatherTool, TimeTool, CityFactsTool, PlanCityVisitTool
         
-        def weather_tool(city: str) -> str:
-            """Get current weather for a city using OpenWeatherMap API"""
-            try:
-                # Mock weather data for demonstration
-                # In production, you would use: api.openweathermap.org/data/2.5/weather
-                weather_data = {
-                    "paris": {"temp": 23, "condition": "clear skies", "humidity": 65},
-                    "london": {"temp": 18, "condition": "partly cloudy", "humidity": 72},
-                    "tokyo": {"temp": 28, "condition": "sunny", "humidity": 58},
-                    "new york": {"temp": 25, "condition": "overcast", "humidity": 68},
-                    "sydney": {"temp": 22, "condition": "light rain", "humidity": 75}
-                }
-                
-                city_lower = city.lower()
-                if city_lower in weather_data:
-                    data = weather_data[city_lower]
-                    return f"Current weather in {city}: {data['temp']}°C, {data['condition']}, humidity {data['humidity']}%"
-                else:
-                    return f"Weather data for {city}: 20°C, partly cloudy (mock data)"
-            except Exception as e:
-                return f"Error getting weather for {city}: {str(e)}"
-        
-        def time_tool(city: str) -> str:
-            """Get current time in a city using timezone offsets"""
-            try:
-                # City to timezone offset mapping (hours from UTC)
-                city_offsets = {
-                    "paris": 1,      # CET/CEST
-                    "london": 0,     # GMT/BST
-                    "tokyo": 9,      # JST
-                    "new york": -5,  # EST/EDT
-                    "sydney": 10,    # AEST/AEDT
-                    "los angeles": -8, # PST/PDT
-                    "berlin": 1,     # CET/CEST
-                    "moscow": 3,     # MSK
-                    "beijing": 8,    # CST
-                    "mumbai": 5.5    # IST
-                }
-                
-                city_lower = city.lower()
-                offset_hours = city_offsets.get(city_lower, 0)
-                
-                # Create timezone with offset
-                tz = timezone(timedelta(hours=offset_hours))
-                current_time = datetime.now(tz)
-                formatted_time = current_time.strftime("%H:%M %p")
-                
-                return f"Current time in {city}: {formatted_time}"
-            except Exception as e:
-                return f"Error getting time for {city}: {str(e)}"
-        
-        def city_facts_tool(city: str) -> str:
-            """Get basic facts about a city"""
-            try:
-                # Mock city facts data
-                city_facts = {
-                    "paris": {
-                        "country": "France",
-                        "population": "2.1 million",
-                        "description": "Paris is the capital of France. It's known for the Eiffel Tower, Louvre Museum, and its romantic atmosphere."
-                    },
-                    "london": {
-                        "country": "United Kingdom",
-                        "population": "9 million",
-                        "description": "London is the capital of England and the UK. Famous for Big Ben, Tower Bridge, and rich history."
-                    },
-                    "tokyo": {
-                        "country": "Japan",
-                        "population": "14 million",
-                        "description": "Tokyo is Japan's capital and largest city. Known for modern technology, anime culture, and traditional temples."
-                    },
-                    "new york": {
-                        "country": "United States",
-                        "population": "8.3 million",
-                        "description": "New York City is the most populous city in the US. Famous for Times Square, Central Park, and the Statue of Liberty."
-                    },
-                    "sydney": {
-                        "country": "Australia",
-                        "population": "5.3 million",
-                        "description": "Sydney is Australia's largest city. Known for the Sydney Opera House, Harbour Bridge, and beautiful beaches."
-                    }
-                }
-                
-                city_lower = city.lower()
-                if city_lower in city_facts:
-                    facts = city_facts[city_lower]
-                    return f"{city} is located in {facts['country']} with a population of {facts['population']}. {facts['description']}"
-                else:
-                    return f"Basic facts about {city}: A city with rich culture and history (mock data - in production would use GeoDB Cities API or Wikipedia API)"
-            except Exception as e:
-                return f"Error getting facts for {city}: {str(e)}"
-        
-        def plan_city_visit_tool(city: str) -> str:
-            """Composite tool that uses multiple tools to plan a city visit"""
-            try:
-                # Get city facts
-                facts = city_facts_tool(city)
-                
-                # Get current weather
-                weather = weather_tool(city)
-                
-                # Get current time
-                current_time = time_tool(city)
-                
-                # Create thinking process
-                thinking = f"To help you plan your visit to {city}, I'll first get some facts, then fetch the current weather and time."
-                
-                # Combine all information
-                response = {
-                    "thinking": thinking,
-                    "function_calls": [
-                        {"tool": "CityFactsTool", "parameters": {"city": city}},
-                        {"tool": "WeatherTool", "parameters": {"city": city}},
-                        {"tool": "TimeTool", "parameters": {"city": city}}
-                    ],
-                    "response": f"{facts} {weather} {current_time} What would you like to do in {city}?"
-                }
-                
-                return json.dumps(response, indent=2)
-            except Exception as e:
-                return f"Error planning visit to {city}: {str(e)}"
+        # Initialize tool instances
+        weather_tool_instance = WeatherTool()
+        time_tool_instance = TimeTool()
+        city_facts_tool_instance = CityFactsTool()
+        plan_visit_tool_instance = PlanCityVisitTool()
         
         return {
-            "WeatherTool": weather_tool,
-            "TimeTool": time_tool,
-            "CityFactsTool": city_facts_tool,
-            "PlanMyCityVisitTool": plan_city_visit_tool
+            "WeatherTool": weather_tool_instance.get_weather,
+            "TimeTool": time_tool_instance.get_time,
+            "CityFactsTool": city_facts_tool_instance.get_city_facts,
+            "PlanMyCityVisitTool": plan_visit_tool_instance.plan_visit
         }
     
     def _create_system_prompt(self):

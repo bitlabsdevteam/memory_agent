@@ -63,6 +63,7 @@ export default function ChatInterface({ onProviderChange, currentProvider: propC
   const [memoryInfo, setMemoryInfo] = useState<MemoryInfo | null>(null);
   const [currentProvider, setCurrentProvider] = useState(propCurrentProvider || 'google_gemini');
   const [isSessionActive, setIsSessionActive] = useState(false);
+  const [sessionConfirmation, setSessionConfirmation] = useState<{show: boolean, message: string}>({show: false, message: ''});
   
   // Enhanced streaming with network resilience
   const { streamState, createResilientStream, disconnect } = useEnhancedStreaming({
@@ -87,20 +88,48 @@ export default function ChatInterface({ onProviderChange, currentProvider: propC
   
   // Handle provider change
   const handleProviderChange = useCallback((provider: string) => {
+    // Log to console
+    console.log('🔄 Provider Change Processed in ChatInterface:', {
+      newProvider: provider,
+      previousProvider: currentProvider,
+      timestamp: new Date().toISOString(),
+      sessionId: sessionId
+    });
+    
     setCurrentProvider(provider);
     addSystemMessage(`🔄 Switched to ${provider} provider`, 'assistant');
     onProviderChange?.(provider);
-  }, [onProviderChange]);
+  }, [onProviderChange, currentProvider, sessionId]);
 
   // Handle new session creation
   const handleNewSession = useCallback(() => {
     const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Log to console
+    console.log('🆕 New Session Created:', {
+      sessionId: newSessionId,
+      shortId: newSessionId.slice(-8),
+      timestamp: new Date().toISOString(),
+      previousSession: sessionId
+    });
+    
     setSessionId(newSessionId);
     setMessages([]);
     setIsSessionActive(false);
     addSystemMessage(`🆕 Started new session: ${newSessionId.slice(-8)}`, 'assistant');
     localStorage.setItem('chatSessionId', newSessionId);
-  }, []);
+    
+    // Show confirmation UI
+    setSessionConfirmation({
+      show: true,
+      message: `New session created: ${newSessionId.slice(-8)}`
+    });
+    
+    // Hide confirmation after 3 seconds
+    setTimeout(() => {
+      setSessionConfirmation({show: false, message: ''});
+    }, 3000);
+  }, [sessionId]);
   const abortControllerRef = useRef<AbortController | null>(null);
   const messageIdCounter = useRef(0);
   
@@ -342,6 +371,7 @@ export default function ChatInterface({ onProviderChange, currentProvider: propC
 
     let thinkingMessage: Message | null = null;
     let assistantMessage: Message | null = null;
+    let thinkingPhaseComplete = false;
 
     try {
       const chatUrl = `${API_BASE_URL}/api/v1/chat`;
@@ -370,7 +400,7 @@ export default function ChatInterface({ onProviderChange, currentProvider: propC
           logDebug('Received streaming data', { type: data.type, hasToken: !!data.token });
           
           if (data.type === 'thinking_start') {
-            if (!thinkingMessage) {
+            if (!thinkingMessage && !thinkingPhaseComplete) {
               thinkingMessage = {
                 id: generateMessageId('thinking'),
                 type: 'thinking',
@@ -381,20 +411,22 @@ export default function ChatInterface({ onProviderChange, currentProvider: propC
               setMessages(prev => [...prev, thinkingMessage!]);
             }
           } else if (data.type === 'thinking') {
-            if (thinkingMessage) {
+            if (thinkingMessage && !thinkingPhaseComplete) {
               const updatedContent = thinkingMessage.content + data.token;
-              // Store the raw content but don't display it - MessageList will show "Thinking..." indicator
               thinkingMessage.content = updatedContent;
               setMessages(prev => {
                 return prev.map(msg => {
                   if (msg.id === thinkingMessage!.id) {
-                    return { ...msg, content: '', metadata: { ...(msg.metadata || {}), isThinking: true } };
+                    return { ...msg, content: updatedContent, metadata: { ...(msg.metadata || {}), isThinking: true } };
                   }
                   return msg;
                 });
               });
             }
           } else if (data.type === 'thinking_end') {
+            // Mark thinking phase as complete to prevent further thinking messages
+            thinkingPhaseComplete = true;
+            
             // Add fade-out class to thinking message and schedule removal
             if (thinkingMessage) {
               setMessages(prev => {
@@ -539,6 +571,14 @@ export default function ChatInterface({ onProviderChange, currentProvider: propC
   };
 
   const updateSession = (newSessionId: string) => {
+    // Log to console
+    console.log('📝 Session Switched:', {
+      newSessionId: newSessionId,
+      shortId: newSessionId.slice(-8),
+      previousSessionId: sessionId,
+      timestamp: new Date().toISOString()
+    });
+    
     setSessionId(newSessionId);
     setMessages([]);
     setIsSessionActive(false);
