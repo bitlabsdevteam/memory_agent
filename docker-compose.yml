@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "5001:5001"
+      - "5001:5002"
     environment:
       - FLASK_ENV=production
       - FLASK_APP=app.py
